@@ -1,0 +1,70 @@
+import json
+import jieba
+from multiprocessing import Process
+from multiprocessing import Manager
+import time
+import random
+import matplotlib.pyplot as plt
+
+
+def Map(list_i, d_list):  #分词并把结果储存到列表中
+    for i in list_i:
+        d = jieba.cut(i)
+        for j in d:
+            d_list.append(j)
+    return
+
+
+def Reduce(d_list, dic):   #将词频统计到字典中并写入文件
+    for i in d_list:
+        dic[i] = d_list.count(i)
+    with open('frequency.txt', 'w', encoding='utf-8') as f:
+        for key in dic:
+            f.write(key + ':' + str(dic[key]) + '\n')
+    return
+
+
+if __name__ == '__main__':
+    x_list = []
+    y_list = []
+    for r in range(10):
+        rx = random.choice(range(1, 100))  #随机选择进程数
+        x_list.append(rx)
+        #开始计时
+        s_time = time.time()
+        n = 0
+        p_list = []
+        lis = []
+        dic = {}
+        #打开文件并读取内容
+        with open('sohu_data.json', encoding='utf-8') as f:
+            j_data = json.load(f)
+            for i in range(len(j_data)):
+                n += 1
+                lis.append(j_data[i]['content'])
+        n = 1000
+        m = int(n / rx)
+        #共享变量
+        M = Manager()
+        d_list = M.list([])
+        for j in range(0, n, m):
+            list_m = lis[j: j + m]
+            p = Process(target=Map, args=(list_m, d_list))
+            p_list.append(p)
+        for p_i in p_list:
+            p_i.start()
+        for p_j in p_list:
+            p_j.join()
+        Reduce(d_list, dic)
+        e_time = time.time()  #结束计时
+        c_time = e_time - s_time
+        y_list.append(c_time)
+        print(c_time)
+    #绘图
+    plt.plot(x_list, y_list)
+    plt.scatter(x_list, y_list, c='red')
+    plt.xlabel('Map进程数')
+    plt.ylabel('程序运行时间')
+    plt.show()
+
+
